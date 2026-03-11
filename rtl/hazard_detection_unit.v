@@ -11,32 +11,15 @@ module hazard_detection_unit (
     input wire branch,
 
     // Output wire to driving result
-    output reg nop,
-    output reg nop_branch
+    output wire dependency,
+
+    output wire PC_enable
+    
 );
 
-    /**always @(posedge clk) begin
-        // First check data hazard
-        if(EX_rd == ID_Rs | EX_rd == ID_rt | MEM_rd == ID_Rs | MEM_rd == ID_rt) begin
-            nop <= 1'b1;
-            nop_branch <= 1'b0;
-        end
-        // Then check branches
-        else if(branch) begin
-            nop <= 1'b0;
-            nop_branch <= 1'b1;
-        end
-        // Default
-        else begin
-            nop <= 1'b0;
-            nop_branch <= 1'b0;
-        end
-    end**/
+    assign dependency = (EX_rd == ID_rs | EX_rd == ID_rt | MEM_rd == ID_rs | MEM_rd == ID_rt) ? 1'b1 : 1'b0;
 
-    assign nop = (EX_rd == ID_Rs | EX_rd == ID_rt | MEM_rd == ID_Rs | MEM_rd == ID_rt) ? 1'b1 : 1'b0;
-    assign nop_branch = (!nop & branch) ? 1'b1 : 1'b0;
-
-
+    assign PC_enable = (dependency | branch) ? 1'b0 : 1'b1;
 
 endmodule
 

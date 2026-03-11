@@ -45,6 +45,8 @@ module control_block(
 
 
     // Mux control signals -----------------------------------
+    // determines whether or not instruction is branch or jump
+    output wire branch_or_jump,
 
     // determines whether to take branch address
     output wire branch,
@@ -101,6 +103,8 @@ module control_block(
 
     // If jal or jalr
     assign jump = (opcode == 7'b110_1111 | opcode == 7'b110_0111) ? 1 : 0;
+
+    assign branch_or_jump = branch | jump;
 
     assign JALR = (opcode == 7'b110_0111) ? 1 : 0;
 

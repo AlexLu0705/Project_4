@@ -7,7 +7,7 @@ module ID_EX_reg(
 
     input wire clk,
 
-    input wire [31:0] Jump_address,
+    input wire [31:0] jump_address,
 
     input wire [31:0] immediate,
 
@@ -22,6 +22,8 @@ module ID_EX_reg(
     input wire [31:0] read_data_2,
 
     input wire [31:0] write_dest,
+
+    input wire [31:0] instruction,
 
     // Control Signals
 
@@ -52,7 +54,7 @@ module ID_EX_reg(
     // OUTPUTS--------------------
     // Wires
 
-    output reg [31:0] Jump_address_out,
+    output reg [31:0] jump_address_out,
 
     output reg [31:0] immediate_out,
 
@@ -67,6 +69,8 @@ module ID_EX_reg(
     output reg [31:0] read_data_2_out,
 
     output reg [31:0] write_dest_out,
+
+    output reg [31:0] instruction_out,
 
     // Control Signals
 
@@ -97,7 +101,7 @@ module ID_EX_reg(
 
     always @(posedge clk) begin
         
-        Jump_address_out <= Jump_address;
+        jump_address_out <= jump_address;
         immediate_out <= immediate;
         PC_out <= PC;
         PC_4_out <= PC_4;
@@ -105,6 +109,7 @@ module ID_EX_reg(
         read_data_1_out <= read_data_1;
         read_data_2_out <= read_data_2;
         write_dest_out <= write_dest;
+        instruction_out <= write_dest;
         jump_out <= jump;
         LUI_out <= LUI;
         ALU_src_out <= ALU_src;
