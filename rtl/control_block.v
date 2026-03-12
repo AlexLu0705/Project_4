@@ -104,7 +104,7 @@ module control_block(
     // If jal or jalr
     assign jump = (opcode == 7'b110_1111 | opcode == 7'b110_0111) ? 1 : 0;
 
-    assign branch_or_jump = branch | jump;
+    assign branch_or_jump = ((branch | jump) === 1'b1) ? 1'b1 : 1'b0;
 
     assign JALR = (opcode == 7'b110_0111) ? 1 : 0;
 

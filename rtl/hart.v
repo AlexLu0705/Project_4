@@ -183,6 +183,7 @@ module hart #(
 
     // Program Counter (PC) wire connections
     wire [31:0] PC_4_IF;
+    wire [31:0] next_PC_IF;
     wire [31:0] PC_immediate;
 
     // Mux intermediate wires
@@ -192,15 +193,16 @@ module hart #(
     wire [31:0] branch_jump_pc_enable_intermediate;
     wire [31:0] branch_jump_dependency_intermediate;
     wire [31:0] JALR_mux_result;
-    wire [31:0] instruction_ID_intermediate;
 
-    wire [31:0] aligned_data;
-    wire [3:0] mask;
+    wire [31:0] aligned_data_MEM;
+    wire [3:0] mask_MEM;
 
     // Pipeline Register Signals
     reg [31:0] PC_IF;   // Program Counter (PC)
     wire [31:0] PC_ID;
     wire [31:0] PC_EX;
+    wire [31:0] PC_MEM;
+    wire [31:0] PC_WB;
     wire [31:0] PC_4_ID;
     wire [31:0] PC_4_EX;
     wire [31:0] PC_4_MEM;
@@ -211,9 +213,9 @@ module hart #(
     wire [31:0] instruction_MEM;
     wire [31:0] instruction_WB;
     wire [31:0] immediate_output_EX;
-    wire [31:0] func_3_ID;
-    wire [31:0] func_3_EX;
-    wire [31:0] func_3_MEM;
+    wire [2:0] func_3_ID;
+    wire [2:0] func_3_EX;
+    wire [2:0] func_3_MEM;
     wire [4:0] write_dest_ID;
     wire [4:0] write_dest_EX;
     wire [4:0] write_dest_MEM;
@@ -246,13 +248,20 @@ module hart #(
     wire mem_read_ID;
     wire mem_read_EX;
     wire mem_read_MEM;
+    wire mem_read_enable_MEM;
     wire mem_read_WB;
     wire mem_write_ID;
     wire mem_write_EX;
     wire mem_write_MEM;
+    wire mem_write_enable_MEM;
     wire mem_write_WB;
     wire dependency_MEM;
     wire dependency_WB;
+    wire [31:0] jump_address_ID;
+    wire [31:0] jump_address_EX;
+    wire [3:0] mask_WB;
+    wire [31:0] aligned_data_WB;
+
 
     // Final enables
     wire reg_write_enable;
@@ -264,14 +273,16 @@ module hart #(
             PC_IF <= RESET_ADDR;
         end
         else begin
-            PC_IF <= o_retire_next_pc;
+            PC_IF <= next_PC_IF;
         end
     end
 
     //****************************** DECLARATION OF ALL MODULES AND SIGNAL CONNECTIONS *******************************//
 
     //---------------------------------------------Start of Register File---------------------------------------------//
-    rf rf (
+    rf  #(
+        .BYPASS_EN(1'b1)
+    ) rf (
         .i_clk(i_clk), // clock
         .i_rst(i_rst), // reset
         .i_rs1_raddr(instruction_ID[19:15]), // read register 1, rs
@@ -286,8 +297,8 @@ module hart #(
 
     //---------------------------------------------Start of Control Block---------------------------------------------//
     control_block control_block (
-        .opcode(i_imem_rdata[6:0]),
-        .func_7(i_imem_rdata[31:25]),
+        .opcode(instruction_ID[6:0]),
+        .func_7(instruction_ID[31:25]),
         .func_3(func_3_ID),
         .i_sub(i_sub_ID), 
         .i_unsigned(i_unsigned_ID),
@@ -329,7 +340,7 @@ module hart #(
         .slt(alu_slt),
         .control_signal_branch(control_signal_branch_EX),
         .func_3(func_3_EX),
-        .branch(branch)
+        .branch(branch_EX)
     );
     //---------------------------------------------End of Branch ControlL---------------------------------------------//
 
@@ -398,7 +409,7 @@ module hart #(
 
     // Determines data to write back to register
     mux mux_mem_to_reg (
-        .operand_1(aligned_data),
+        .operand_1(aligned_data_WB),
         .operand_0(alu_result_WB),
         .select(mem_to_reg_WB),
         .result(write_not_jump_WB)
@@ -444,7 +455,7 @@ module hart #(
 
     mux mux_branch_jump_instruction_IF (
         .operand_1(32'b0),
-        .operand_0(i_dmem_rdata),
+        .operand_0(i_imem_rdata),
         .select(branch_or_jump_ID),
         .result(branch_jump_dependency_intermediate)
     );
@@ -453,7 +464,7 @@ module hart #(
         .operand_1(branch_jump_pc_enable_intermediate),
         .operand_0(PC_IF),
         .select(PC_enable),
-        .result(o_retire_next_pc)
+        .result(next_PC_IF)
     );
 
     mux mux_dependency (
@@ -465,9 +476,9 @@ module hart #(
 
     mux mux_nop (
         .operand_1(32'b0),
-        .operand_0(instruction_ID_intermediate),
+        .operand_0(i_imem_rdata),
         .select(dependency_EX),
-        .result(instruction_ID)
+        .result()
     );
 
     //--------------------------------------------------End of Mux-------------------------------------------------//
@@ -476,12 +487,13 @@ module hart #(
 
     IF_ID_reg IF_ID_register(
         .clk(i_clk),
+        .rst(i_rst),
         .PC(PC_IF),
         .PC_4(PC_4_IF),
-        .instruction(instruction_IF),
+        .instruction(i_imem_rdata),
         .PC_out(PC_ID),
         .PC_4_out(PC_4_ID),
-        .instruction_out(instruction_ID_intermediate)
+        .instruction_out(instruction_ID)
     );
 
     ID_EX_reg ID_EX_register(
@@ -566,11 +578,13 @@ module hart #(
         .read_data_2(read_data_2_MEM),
         .write_dest(write_dest_MEM),
         .instruction(instruction_MEM),
+        .mask(mask_MEM),
+        .aligned_data(aligned_data_MEM),
         .jump(jump_MEM),
         .mem_to_reg(mem_to_reg_MEM),
         .reg_write(reg_write_MEM),
-        .mem_read(mem_read_MEM),
-        .mem_write(mem_write_MEM),
+        .mem_read(mem_read_enable_MEM),
+        .mem_write(mem_write_enable_MEM),
         .dependency(dependency_MEM),
         .PC_out(PC_WB),
         .alu_result_out(alu_result_WB),
@@ -578,6 +592,8 @@ module hart #(
         .read_data_2_out(read_data_2_WB),
         .write_dest_out(write_dest_WB),
         .instruction_out(instruction_WB),
+        .mask_out(mask_WB),
+        .aligned_data_out(aligned_data_WB),
         .jump_out(jump_WB),
         .mem_to_reg_out(mem_to_reg_WB),
         .reg_write_out(reg_write_WB),
@@ -595,6 +611,7 @@ module hart #(
     hazard_detection_unit hazard_detection_unit1 (
         .EX_rd(write_dest_EX),
         .MEM_rd(write_dest_MEM),
+        .rst(i_rst),
         .ID_rs(instruction_ID[19:15]),
         .ID_rt(instruction_ID[24:20]),
         .branch(control_signal_branch_ID),
@@ -609,7 +626,7 @@ module hart #(
     address_aligner address_aligner1 (
         .func_3(func_3_MEM),
         .address(alu_result_MEM),
-        .mask(mask),
+        .mask(mask_MEM),
         .aligned_address(o_dmem_addr)
     );
 
@@ -617,18 +634,19 @@ module hart #(
 
     data_aligner data_aligner1 (
         .data(i_dmem_rdata),
-        .mask(mask),
+        .mask(mask_MEM),
         .func_3(func_3_MEM),
-        .data_output(aligned_data)
+        .data_output(aligned_data_MEM)
     );
 
     //*************************** END DECLARATION OF ALL MODULES AND SIGNAL CONNECTIONS ****************************//
 
     //********************************* ASSIGNMENT OF ALL OUTPUT SIGNALS IN HART **********************************//
+    
+    assign o_imem_raddr = PC_IF;
 
     assign o_retire_pc = PC_WB;
-    assign o_retire_valid = (PC_WB != 32'bx | PC_WB != 32'bz) ? 1'b1 : 1'b0;
-    assign o_imem_raddr = PC_IF;
+    assign o_retire_valid = (PC_WB >= 32'b0 ) ? 1'b1 : 1'b0;
 
     assign o_retire_inst = instruction_WB;
     assign o_retire_rs1_raddr = instruction_WB[19:15];
@@ -637,17 +655,23 @@ module hart #(
     assign o_retire_rs2_rdata = read_data_2_WB;
     assign o_retire_rd_waddr = write_dest_WB;
     assign o_retire_rd_wdata = write_back;
+    assign o_retire_dmem_addr = alu_result_WB;
+    assign o_retire_dmem_rdata = aligned_data_WB;
+    assign o_retire_dmem_wdata = read_data_2_WB;
+    assign o_retire_dmem_ren = mem_read_WB;
+    assign o_retire_dmem_wen = mem_write_WB;
+    assign o_retire_next_pc = PC_WB;
 
 
     assign o_dmem_wdata = read_data_2_MEM;
-    assign o_dmem_mask = mask;
-    assign instruction_IF = i_dmem_rdata;
+    assign o_dmem_mask = mask_MEM;
     assign func_3_ID = instruction_ID[14:12];
     assign write_dest_ID = instruction_ID[11:7];
-    assign o_retire_dmem_ren = mem_read_WB;
-    assign o_retire_dmem_wen = mem_write_WB;
     assign o_dmem_ren = dependency_MEM ? 1'b0 : mem_read_MEM;
     assign o_dmem_wen = dependency_MEM ? 1'b0 : mem_write_MEM;
+    assign mem_read_enable_MEM = o_dmem_ren;
+    assign mem_write_enable_MEM = o_dmem_wen;
+
 
     assign reg_write_enable = dependency_WB ? 1'b0 : reg_write_WB;
 

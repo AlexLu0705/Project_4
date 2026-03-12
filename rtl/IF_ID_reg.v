@@ -5,6 +5,8 @@ module IF_ID_reg(
 
     input wire clk,
 
+    input wire rst,
+
     input wire [31:0] PC,
 
     input wire [31:0] PC_4,
@@ -19,9 +21,16 @@ module IF_ID_reg(
 );
 
     always @(posedge clk) begin
-        PC_out <= PC;
-        PC_4_out <= PC;
-        instruction_out <= instruction;
+        if(rst) begin
+            PC_out <= 32'bx;
+            PC_4_out <= 32'bx;
+            instruction_out <= 32'bx;
+        end
+        else begin
+            PC_out <= PC;
+            PC_4_out <= PC_4;
+            instruction_out <= instruction;
+        end
     end
 
 endmodule

@@ -108,7 +108,7 @@ module hart_tb #(
 
         // Load the test program into memory at address 0.
         $display("Loading program.");
-        $readmemh("program.mem", imem);
+        $readmemh("program_01add.mem", imem);
 
         // Reset the dut.
         $display("Resetting hart.");

@@ -14,7 +14,7 @@ module address_aligner(
     output wire [31:0] aligned_address
 );
     // 0 = word, 1 = half-word, 2 = byte
-    reg [3:0] bit_length;
+    reg [2:0] bit_length;
     assign bit_length = (func_3 == 3'b000 | func_3 == 3'b100) ? 3'b100 : // byte
                         (func_3 == 3'b001 | func_3 == 3'b101) ? 3'b010 : // half word
                         (func_3 == 3'b010) ? 3'b001 : // word

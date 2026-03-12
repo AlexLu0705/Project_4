@@ -21,7 +21,7 @@ module ID_EX_reg(
 
     input wire [31:0] read_data_2,
 
-    input wire [31:0] write_dest,
+    input wire [4:0] write_dest,
 
     input wire [31:0] instruction,
 
@@ -68,7 +68,7 @@ module ID_EX_reg(
 
     output reg [31:0] read_data_2_out,
 
-    output reg [31:0] write_dest_out,
+    output reg [4:0] write_dest_out,
 
     output reg [31:0] instruction_out,
 
@@ -109,7 +109,7 @@ module ID_EX_reg(
         read_data_1_out <= read_data_1;
         read_data_2_out <= read_data_2;
         write_dest_out <= write_dest;
-        instruction_out <= write_dest;
+        instruction_out <= instruction;
         jump_out <= jump;
         LUI_out <= LUI;
         ALU_src_out <= ALU_src;
