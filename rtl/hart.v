@@ -124,12 +124,21 @@ module hart #(
     // the next program counter after the instruction is retired. For most
     // instructions, this is `o_retire_pc + 4`, but must be the branch or jump
     // target for *taken* branches and jumps.
-    output wire [31:0] o_retire_next_pc
+    output wire [31:0] o_retire_next_pc,
+
+    // Additional retire signals
+    output wire [31:0] o_retire_dmem_addr,
+    output wire o_retire_dmem_ren,
+    output wire o_retire_dmem_wen,
+    output wire [ 3:0] o_retire_dmem_mask,
+    output wire [31:0] o_retire_dmem_wdata,
+    output wire [31:0] o_retire_dmem_rdata
 
 `ifdef RISCV_FORMAL
     ,`RVFI_OUTPUTS,
 `endif
-);   
+);
+
 
     // Intermediate wires control signals
     wire i_sub_ID;
@@ -237,9 +246,11 @@ module hart #(
     wire mem_read_ID;
     wire mem_read_EX;
     wire mem_read_MEM;
+    wire mem_read_WB;
     wire mem_write_ID;
     wire mem_write_EX;
     wire mem_write_MEM;
+    wire mem_write_WB;
     wire dependency_MEM;
     wire dependency_WB;
 
@@ -558,6 +569,8 @@ module hart #(
         .jump(jump_MEM),
         .mem_to_reg(mem_to_reg_MEM),
         .reg_write(reg_write_MEM),
+        .mem_read(mem_read_MEM),
+        .mem_write(mem_write_MEM),
         .dependency(dependency_MEM),
         .PC_out(PC_WB),
         .alu_result_out(alu_result_WB),
@@ -568,6 +581,8 @@ module hart #(
         .jump_out(jump_WB),
         .mem_to_reg_out(mem_to_reg_WB),
         .reg_write_out(reg_write_WB),
+        .mem_read_out(mem_read_WB),
+        .mem_write_out(mem_write_WB),
         .dependency_out(dependency_WB)
     );
 
@@ -629,6 +644,8 @@ module hart #(
     assign instruction_IF = i_dmem_rdata;
     assign func_3_ID = instruction_ID[14:12];
     assign write_dest_ID = instruction_ID[11:7];
+    assign o_retire_dmem_ren = mem_read_WB;
+    assign o_retire_dmem_wen = mem_write_WB;
     assign o_dmem_ren = dependency_MEM ? 1'b0 : mem_read_MEM;
     assign o_dmem_wen = dependency_MEM ? 1'b0 : mem_write_MEM;
 
