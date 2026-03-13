@@ -193,6 +193,7 @@ module hart #(
     wire [31:0] branch_jump_pc_enable_intermediate;
     wire [31:0] branch_jump_dependency_intermediate;
     wire [31:0] JALR_mux_result;
+    wire [31:0] instruction_ID_intermediate;
 
     wire [31:0] aligned_data_MEM;
     wire [3:0] mask_MEM;
@@ -261,19 +262,27 @@ module hart #(
     wire [31:0] jump_address_EX;
     wire [3:0] mask_WB;
     wire [31:0] aligned_data_WB;
+    wire halt_ID;
+    wire halt_EX;
+    wire halt_MEM;
+    wire halt_WB;
 
 
     // Final enables
     wire reg_write_enable;
 
-
+    reg [2:0] counter = 3'b0;
 
     always @(posedge i_clk) begin
         if(i_rst) begin
             PC_IF <= RESET_ADDR;
+            counter <= 0;
         end
         else begin
             PC_IF <= next_PC_IF;
+            if(counter < 4) begin
+                counter <= counter + 1;
+            end
         end
     end
 
@@ -288,7 +297,7 @@ module hart #(
         .i_rs1_raddr(instruction_ID[19:15]), // read register 1, rs
         .i_rs2_raddr(instruction_ID[24:20]), // read register 2, rt
         .i_rd_wen(reg_write_enable), // write enable
-        .i_rd_waddr(i_imem_rdata[11:7]), // write register, rd
+        .i_rd_waddr(write_dest_WB), // write register, rd
         .i_rd_wdata(write_back), // data to write to write register
         .o_rs1_rdata(read_data_1_ID), // read data from register 1
         .o_rs2_rdata(read_data_2_ID) // read data from register 2
@@ -297,6 +306,7 @@ module hart #(
 
     //---------------------------------------------Start of Control Block---------------------------------------------//
     control_block control_block (
+        .counter(counter),
         .opcode(instruction_ID[6:0]),
         .func_7(instruction_ID[31:25]),
         .func_3(func_3_ID),
@@ -313,7 +323,7 @@ module hart #(
         .branch_or_jump(branch_or_jump_ID),
         .LUI(LUI_ID),
         .ALU_src(ALU_src_ID),
-        .halt(o_retire_halt),
+        .halt(halt_ID),
         .ALU_opsel(ALU_opsel_ID),
         .JALR(JALR_ID)
     );
@@ -321,14 +331,14 @@ module hart #(
 
     //---------------------------------------Start of Instruction-Type Decoder---------------------------------------//
     instruction_type_decoder instruction_type_decoder (
-        .opcode(i_imem_rdata[6:0]),
+        .opcode(instruction_ID[6:0]),
         .instruction_format(instruction_format)
     );
     //-----------------------------------------End of Instruction-Type Decoder----------------------------------------//
 
     //-------------------------------------------Start of Immediate Decoder-------------------------------------------//
     imm imm (
-        .i_inst(i_imem_rdata),
+        .i_inst(instruction_ID),
         .i_format(instruction_format),
         .o_immediate(immediate_output_ID)
     );
@@ -476,9 +486,9 @@ module hart #(
 
     mux mux_nop (
         .operand_1(32'b0),
-        .operand_0(i_imem_rdata),
+        .operand_0(instruction_ID),
         .select(dependency_EX),
-        .result()
+        .result(instruction_ID_intermediate)
     );
 
     //--------------------------------------------------End of Mux-------------------------------------------------//
@@ -490,7 +500,7 @@ module hart #(
         .rst(i_rst),
         .PC(PC_IF),
         .PC_4(PC_4_IF),
-        .instruction(i_imem_rdata),
+        .instruction(instruction_IF),
         .PC_out(PC_ID),
         .PC_4_out(PC_4_ID),
         .instruction_out(instruction_ID)
@@ -506,7 +516,8 @@ module hart #(
         .read_data_1(read_data_1_ID),
         .read_data_2(read_data_2_ID),
         .write_dest(write_dest_ID),
-        .instruction(instruction_ID),
+        .instruction(instruction_ID_intermediate),
+        .ALU_opsel(ALU_opsel_ID),
         .jump(jump_ID),
         .LUI(LUI_ID),
         .ALU_src(ALU_src_ID),
@@ -518,6 +529,7 @@ module hart #(
         .mem_write(mem_write_ID),
         .mem_to_reg(mem_to_reg_ID),
         .reg_write(reg_write_ID),
+        .halt(halt_ID),
         .jump_address_out(jump_address_EX),
         .immediate_out(immediate_output_EX),
         .PC_out(PC_EX),
@@ -527,6 +539,7 @@ module hart #(
         .read_data_2_out(read_data_2_EX),
         .write_dest_out(write_dest_EX),
         .instruction_out(instruction_EX),
+        .ALU_opsel_out(ALU_opsel_EX),
         .jump_out(jump_EX),
         .LUI_out(LUI_EX),
         .ALU_src_out(ALU_src_EX),
@@ -537,7 +550,8 @@ module hart #(
         .mem_read_out(mem_read_EX),
         .mem_write_out(mem_write_EX),
         .mem_to_reg_out(mem_to_reg_EX),
-        .reg_write_out(reg_write_EX)
+        .reg_write_out(reg_write_EX),
+        .halt_out(halt_EX)
     );
 
     EX_MEM_reg EX_MEM_register(
@@ -555,6 +569,7 @@ module hart #(
         .jump(jump_EX),
         .reg_write(reg_write_EX),
         .dependency(dependency_EX),
+        .halt(halt_EX),
         .PC_out(PC_MEM),
         .alu_result_out(alu_result_MEM),
         .write_dest_out(write_dest_MEM),
@@ -567,7 +582,8 @@ module hart #(
         .mem_to_reg_out(mem_to_reg_MEM),
         .jump_out(jump_MEM),
         .reg_write_out(reg_write_MEM),
-        .dependency_out(dependency_MEM)
+        .dependency_out(dependency_MEM),
+        .halt_out(halt_MEM)
     );
 
     MEM_WB_reg MEM_WB_register(
@@ -586,6 +602,7 @@ module hart #(
         .mem_read(mem_read_enable_MEM),
         .mem_write(mem_write_enable_MEM),
         .dependency(dependency_MEM),
+        .halt(halt_MEM),
         .PC_out(PC_WB),
         .alu_result_out(alu_result_WB),
         .read_data_1_out(read_data_1_WB),
@@ -599,7 +616,8 @@ module hart #(
         .reg_write_out(reg_write_WB),
         .mem_read_out(mem_read_WB),
         .mem_write_out(mem_write_WB),
-        .dependency_out(dependency_WB)
+        .dependency_out(dependency_WB),
+        .halt_out(halt_WB)
     );
 
 
@@ -611,9 +629,9 @@ module hart #(
     hazard_detection_unit hazard_detection_unit1 (
         .EX_rd(write_dest_EX),
         .MEM_rd(write_dest_MEM),
-        .rst(i_rst),
         .ID_rs(instruction_ID[19:15]),
         .ID_rt(instruction_ID[24:20]),
+        .counter(counter),
         .branch(control_signal_branch_ID),
         .dependency(dependency_EX),
         .PC_enable(PC_enable)
@@ -646,7 +664,7 @@ module hart #(
     assign o_imem_raddr = PC_IF;
 
     assign o_retire_pc = PC_WB;
-    assign o_retire_valid = (PC_WB >= 32'b0 ) ? 1'b1 : 1'b0;
+    assign o_retire_valid = (PC_WB >= 32'b0 & instruction_WB != 32'b0) ? 1'b1 : 1'b0;
 
     assign o_retire_inst = instruction_WB;
     assign o_retire_rs1_raddr = instruction_WB[19:15];
@@ -661,9 +679,10 @@ module hart #(
     assign o_retire_dmem_ren = mem_read_WB;
     assign o_retire_dmem_wen = mem_write_WB;
     assign o_retire_next_pc = PC_WB;
+    assign o_retire_halt = halt_WB;
 
 
-    assign o_dmem_wdata = read_data_2_MEM;
+    assign o_dmem_wdata = read_data_2_MEM   ;
     assign o_dmem_mask = mask_MEM;
     assign func_3_ID = instruction_ID[14:12];
     assign write_dest_ID = instruction_ID[11:7];

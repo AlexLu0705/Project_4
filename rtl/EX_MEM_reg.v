@@ -33,6 +33,8 @@ module EX_MEM_reg(
 
     input wire dependency,
 
+    input wire halt,
+
     //OUTPUT-------------------------
 
     output reg [31:0] PC_out,
@@ -61,7 +63,9 @@ module EX_MEM_reg(
     
     output reg reg_write_out,
     
-    output reg dependency_out
+    output reg dependency_out,
+
+    output reg halt_out
 
 );
 
@@ -79,6 +83,7 @@ module EX_MEM_reg(
         mem_to_reg_out <= mem_to_reg;
         reg_write_out <= reg_write;
         dependency_out <= dependency;
+        halt_out <= halt;
     end
 
 endmodule

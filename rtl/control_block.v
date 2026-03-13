@@ -1,7 +1,6 @@
-`default_nettype none
-
 // This block controls the signals required for proper datapath control for all instructions in the RISC-V ISA derived from the opcode
 module control_block(
+    input wire [2:0] counter,
     // 7-bit opcode from instruction word
     input wire [6:0] opcode,
     
@@ -104,7 +103,7 @@ module control_block(
     // If jal or jalr
     assign jump = (opcode == 7'b110_1111 | opcode == 7'b110_0111) ? 1 : 0;
 
-    assign branch_or_jump = ((branch | jump) === 1'b1) ? 1'b1 : 1'b0;
+    assign branch_or_jump = (counter < 3) ? 1'b0 : (branch | jump) ? 1 : 0;
 
     assign JALR = (opcode == 7'b110_0111) ? 1 : 0;
 
@@ -119,5 +118,3 @@ module control_block(
 
     assign i_arith = (func_7 == 7'b010_0000 & (opcode == 7'b011_0011 | opcode == 7'b001_0011)) ? 1 : 0;
 endmodule
-
-`default_nettype wire

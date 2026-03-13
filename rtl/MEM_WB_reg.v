@@ -32,6 +32,8 @@ module MEM_WB_reg(
     input wire mem_write,
 
     input wire dependency,
+    
+    input wire halt,
 
     // OUTPUT------------------------
 
@@ -61,7 +63,9 @@ module MEM_WB_reg(
 
     output reg mem_write_out,
 
-    output reg dependency_out
+    output reg dependency_out,
+
+    output reg halt_out
 
 );
 
@@ -81,8 +85,8 @@ module MEM_WB_reg(
         mem_read_out <= mem_read;
         mem_write_out <= mem_write;
         dependency_out <= dependency;
-        
-        
+        halt_out <= halt;
+
     end
 
 endmodule
